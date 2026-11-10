@@ -1,48 +1,36 @@
 using LogHub.Filtering;
 using LogHub.Formatting;
-using LogHub.Parsing;
-using LogHub.Reading;
+using LogHub.Importing;
 using LogHub.Sinks;
 
 namespace LogHub;
 
 public class LogProcessor
 {
-    private readonly LogFileReader _reader;
-    private readonly ApacheLogParser _parser;
+    private readonly ILogImporter _importer;
     private readonly SeverityFilter _filter;
     private readonly PlainTextFormatter _formatter;
     private readonly IEnumerable<ILogSink> _sinks;
 
     public LogProcessor(
-        LogFileReader reader,
-        ApacheLogParser parser,
+        ILogImporter importer,
         SeverityFilter filter,
         PlainTextFormatter formatter,
         IEnumerable<ILogSink> sinks)
     {
-        _reader = reader;
-        _parser = parser;
+        _importer = importer;
         _filter = filter;
         _formatter = formatter;
         _sinks = sinks;
     }
 
-    public (int Written, int Skipped) Process(string filePath)
+    public (int Written, int Skipped) Process(string source)
     {
         int written = 0;
         int skipped = 0;
 
-        foreach (var line in _reader.ReadLines(filePath))
+        foreach (var record in _importer.Import(source))
         {
-            var record = _parser.Parse(line);
-
-            if (record == null)
-            {
-                skipped++;
-                continue;
-            }
-
             if (!_filter.IsAllowed(record))
             {
                 skipped++;

@@ -22,4 +22,13 @@
     <ProjectReference Include="..\LogHub\LogHub.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="apache-test.log">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="csv-test.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
