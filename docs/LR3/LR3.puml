@@ -1,0 +1,83 @@
+@startuml
+
+skinparam classAttributeIconSize 0
+
+package "Импорт логов" {
+
+    interface ILogImporter {
+        +Import(path)
+    }
+
+    abstract class LogImporterBase {
+        +Import(path)
+        #Read(source)
+        #Parse(line)
+        #Validate(record)
+    }
+
+    class ApacheLogImporter
+    class CsvLogImporter
+    class InMemoryLogImporter
+
+    ILogImporter <|.. LogImporterBase
+    LogImporterBase <|-- ApacheLogImporter
+    LogImporterBase <|-- CsvLogImporter
+    LogImporterBase <|-- InMemoryLogImporter
+
+    class LogProcessor {
+        -importer: ILogImporter
+        +Process(path)
+    }
+
+    LogProcessor --> ILogImporter
+
+    class LogRecord
+    class ApacheLogParser
+    class SeverityFilter
+    class PlainTextFormatter
+
+    interface ILogSink
+    class ConsoleLogSink
+    class FileLogSink
+    class InMemoryLogSink
+
+    ILogSink <|.. ConsoleLogSink
+    ILogSink <|.. FileLogSink
+    ILogSink <|.. InMemoryLogSink
+
+    LogProcessor --> SeverityFilter
+    LogProcessor --> PlainTextFormatter
+    LogProcessor --> ILogSink
+    LogImporterBase --> LogRecord
+}
+
+package "Обход графа" {
+
+    class Node {
+        +Name: string
+        +Dependencies: List<Node>
+    }
+
+    class Graph {
+        +DepthFirst(root): IEnumerable<Node>
+        +BreadthFirst(root): IEnumerable<Node>
+        +PrintCycles(root): void
+        +ManualDepthFirst(root): ManualGraphEnumerator
+    }
+
+    class ManualGraphEnumerator {
+        -_root: Node
+        -_stack: Stack<Node>
+        -_visited: HashSet<Node>
+        +Current: Node
+        +MoveNext(): bool
+        +Reset(): void
+        +Dispose(): void
+    }
+
+    Graph --> Node
+    Graph --> ManualGraphEnumerator
+    Node --> "0..*" Node : Dependencies
+}
+
+@enduml
