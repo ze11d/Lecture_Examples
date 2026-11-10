@@ -1,0 +1,2 @@
+IpAddress,UserIdentifier,UserName,Date,Request,StatusCode,ResponseSize,UserAgent
+invalid-ip,-,-,2025-10-10,GET /index.html,200,123,TestAgent
