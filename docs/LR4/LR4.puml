@@ -1,0 +1,133 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+
+title Диаграмма классов системы обработки логов
+
+package "Filtering" {
+    interface ILogRecordFilter {
+        +SetNext(next: ILogRecordFilter): ILogRecordFilter
+        +IsAllowed(record: LogRecord): bool
+    }
+
+    abstract class LogRecordFilterBase {
+        -_next: ILogRecordFilter
+        +SetNext(next: ILogRecordFilter): ILogRecordFilter
+        +IsAllowed(record: LogRecord): bool
+        #IsMatch(record: LogRecord): bool
+    }
+
+    class SeverityRecordFilter
+    class RecordAgeFilter
+    class DuplicateRecordFilter
+    class LogFilterChain {
+        +IsAllowed(record: LogRecord): bool
+    }
+
+    ILogRecordFilter <|.. LogRecordFilterBase
+    LogRecordFilterBase <|-- SeverityRecordFilter
+    LogRecordFilterBase <|-- RecordAgeFilter
+    LogRecordFilterBase <|-- DuplicateRecordFilter
+    LogFilterChain o-- ILogRecordFilter
+}
+
+package "Models" {
+    class LogRecord {
+        +Severity: LogSeverity
+        +Date: DateTime
+        +IpAddress: string
+        +Request: string
+        +StatusCode: int
+    }
+
+    abstract class LogEntry {
+        +Accept(visitor: ILogEntryVisitor)
+    }
+
+    class SimpleLogEntry {
+        +Message: string
+        +Accept(visitor: ILogEntryVisitor)
+    }
+
+    class ExceptionLogEntry {
+        +Message: string
+        +StackTrace: string
+        +Accept(visitor: ILogEntryVisitor)
+    }
+
+    class MetricLogEntry {
+        +Value: double
+        +Accept(visitor: ILogEntryVisitor)
+    }
+
+    LogEntry <|-- SimpleLogEntry
+    LogEntry <|-- ExceptionLogEntry
+    LogEntry <|-- MetricLogEntry
+}
+
+package "Visitors" {
+    interface ILogEntryVisitor {
+        +Visit(entry: SimpleLogEntry)
+        +Visit(entry: ExceptionLogEntry)
+        +Visit(entry: MetricLogEntry)
+    }
+
+    class LogEntryTextVisitor
+    class LogEntryStatisticsVisitor
+
+    ILogEntryVisitor <|.. LogEntryTextVisitor
+    ILogEntryVisitor <|.. LogEntryStatisticsVisitor
+}
+
+package "Observers" {
+    interface ILogPipelineObserver {
+        +OnRecordProcessed(record: LogRecord)
+    }
+
+    class LogPipelineSubject {
+        -observers: List~ILogPipelineObserver~
+        +Subscribe(observer: ILogPipelineObserver)
+        +Unsubscribe(observer: ILogPipelineObserver)
+        +Notify(record: LogRecord)
+    }
+
+    class LogRecordCounter
+    class CriticalAlertObserver
+    class ConsoleLogObserver
+
+    ILogPipelineObserver <|.. LogRecordCounter
+    ILogPipelineObserver <|.. CriticalAlertObserver
+    ILogPipelineObserver <|.. ConsoleLogObserver
+    LogPipelineSubject o-- ILogPipelineObserver
+}
+
+package "Processing" {
+    class LogProcessor {
+        +Process()
+    }
+
+    class LogNotificationSource {
+        +NotifyPush(record, observer)
+        +NotifyPull(record)
+        +GetRecord()
+    }
+
+    class PushLogObserver {
+        +OnRecordProcessed(record: LogRecord)
+    }
+
+    class PullLogObserver {
+        +OnRecordProcessed()
+    }
+
+    LogNotificationSource --> PushLogObserver : Push
+    LogNotificationSource --> PullLogObserver : Pull
+}
+
+LogProcessor --> LogFilterChain
+LogProcessor --> LogPipelineSubject
+LogFilterChain --> LogRecord
+LogPipelineSubject --> LogRecord
+LogEntry --> ILogEntryVisitor : Accept
+
+@enduml

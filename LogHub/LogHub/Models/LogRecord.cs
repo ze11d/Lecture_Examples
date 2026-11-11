@@ -14,6 +14,8 @@ public class LogRecord
 
     public int StatusCode { get; set; }
 
+    public LogSeverity Severity { get; set; } = LogSeverity.Info;
+
     public long ResponseSize { get; set; }
 
     public string UserAgent { get; set; } = string.Empty;

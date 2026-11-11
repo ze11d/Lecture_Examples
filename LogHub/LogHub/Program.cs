@@ -6,6 +6,8 @@ using LogHub.Importing;
 using LogHub.Parsing;
 using LogHub.Sinks;
 using LogHub.Graphs;
+using LogHub.Configuration;
+using LogHub.Observers;
 
 var profilePath = Path.Combine(AppContext.BaseDirectory, "profile.txt");
 
@@ -25,6 +27,36 @@ ILogSink outputSink = profile switch
 };
 
 var services = new ServiceCollection();
+services.AddSingleton<LogNotificationSource>();
+services.AddSingleton<PushLogObserver>();
+
+services.AddSingleton<PullLogObserver>(sp =>
+{
+    var source = sp.GetRequiredService<LogNotificationSource>();
+    var observer = new PullLogObserver(source.GetRecord);
+
+    source.RecordProcessed += observer.OnRecordProcessed;
+
+    return observer;
+});
+services.AddSingleton<LogPipelineSubject>(_ =>
+{
+    var subject = new LogPipelineSubject();
+
+    subject.Subscribe(new LogRecordCounter());
+    subject.Subscribe(new CriticalAlertObserver());
+    subject.Subscribe(new ConsoleLogObserver());
+
+    return subject;
+});
+var config = new ConfigService();
+config.SetValue("FilterOrder", "severity,age,duplicates");
+
+services.AddSingleton<IConfigService>(config);
+services.AddSingleton<LogFilterChainFactory>();
+
+services.AddSingleton<LogFilterChain>(sp =>
+    sp.GetRequiredService<LogFilterChainFactory>().Create());
 
 services.AddSingleton<PlainTextFormatter>(formatter);
 services.AddSingleton<InMemoryLogSink>(memorySink);
@@ -33,6 +65,9 @@ services.AddSingleton<ILogSink>(memorySink);
 services.AddSingleton<ILogSink>(outputSink);
 
 services.AddSingleton<ApacheLogParser>();
+services.AddSingleton<PipelineMediator>();
+services.AddSingleton<IMediator>(sp =>
+    sp.GetRequiredService<PipelineMediator>());
 services.AddSingleton<ApacheLogImporter>();
 services.AddSingleton<CsvLogImporter>();
 
@@ -57,13 +92,17 @@ var importerFactories =
     };
 
 services.AddSingleton<ILogImporter>(sp =>
-    importerFactories.TryGetValue(importerName, out var factory)
+{
+    var importer = importerFactories.TryGetValue(importerName, out var factory)
         ? factory(sp)
         : throw new InvalidOperationException(
-            $"Неизвестный импортёр: {importerName}"));
+            $"Неизвестный импортёр: {importerName}");
 
-services.AddSingleton<SeverityFilter>(
-    _ => new SeverityFilter(200));
+    if (importer is IMediatorAwareImporter awareImporter)
+        awareImporter.SetMediator(sp.GetRequiredService<IMediator>());
+
+    return importer;
+});
 
 services.AddSingleton<LogProcessor>();
 
@@ -73,7 +112,14 @@ var processor = provider.GetRequiredService<LogProcessor>();
 
 var inputFile = args.Length > 0 ? args[0] : "access.log";
 
+var pullObserver = provider.GetRequiredService<PullLogObserver>();
+
 var result = processor.Process(inputFile);
+
+var pushObserver = provider.GetRequiredService<PushLogObserver>();
+
+Console.WriteLine($"Push: {pushObserver.Count}");
+Console.WriteLine($"Pull: {pullObserver.Count}");
 
 Console.WriteLine($"Импортёр: {importerName}");
 Console.WriteLine($"Записано: {result.Written}");

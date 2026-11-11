@@ -1,24 +1,31 @@
-
 using LogHub.Models;
+using LogHub;
 
 namespace LogHub.Importing;
 
-public abstract class LogImporterBase : ILogImporter
+public abstract class LogImporterBase : ILogImporter, IMediatorAwareImporter
 {
+    private IMediator? _mediator;
+
+    public void SetMediator(IMediator mediator)
+    {
+       _mediator = mediator;
+    }   
+    
     public IEnumerable<LogRecord> Import(string source)
     {
-        var records = new List<LogRecord>();
-
         Open(source);
 
         try
         {
             foreach (var line in Read(source))
             {
+                _mediator?.WaitIfOverloaded();
+
                 var record = Parse(line);
 
                 if (record != null && Validate(record))
-                    records.Add(record);
+                    yield return record;
             }
         }
         finally
@@ -32,8 +39,6 @@ public abstract class LogImporterBase : ILogImporter
                 Dispose();
             }
         }
-
-        return records;
     }
 
     protected virtual void Open(string source)

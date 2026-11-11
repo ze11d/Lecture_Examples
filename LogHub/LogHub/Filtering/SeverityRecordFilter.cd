@@ -1,0 +1,18 @@
+using LogHub.Models;
+
+namespace LogHub.Filtering;
+
+public class SeverityRecordFilter : ILogRecordFilter
+{
+    private readonly LogSeverity _minimumSeverity;
+
+    public SeverityRecordFilter(LogSeverity minimumSeverity)
+    {
+        _minimumSeverity = minimumSeverity;
+    }
+
+    public bool IsAllowed(LogRecord record)
+    {
+        return record.Severity >= _minimumSeverity;
+    }
+}

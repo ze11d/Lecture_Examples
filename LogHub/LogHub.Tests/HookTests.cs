@@ -5,6 +5,9 @@ using LogHub.Importing;
 using LogHub.Models;
 using LogHub.Parsing;
 using LogHub.Sinks;
+using LogHub.Observers;
+using System.Linq;
+
 
 namespace LogHub.Tests;
 
@@ -36,7 +39,9 @@ public class HookTests
     {
         var importer = new OrderedImporter();
 
-        importer.Import("source");
+        foreach (var record in importer.Import("source"))
+        {
+        }
 
         Assert.Equal(
             new[] { "Open", "Read", "Parse", "Validate", "Close", "Dispose" },
@@ -67,11 +72,21 @@ public class HookTests
         ILogImporter importer,
         InMemoryLogSink sink)
     {
+        var filterChain = new LogFilterChain(
+            new ILogRecordFilter[]
+            {
+                new SeverityRecordFilter(LogSeverity.Trace)
+            });
+
         return new LogProcessor(
             importer,
-            new SeverityFilter(200),
+            filterChain,
             new PlainTextFormatter(),
-            new ILogSink[] { sink });
+            new ILogSink[] { sink },
+            new LogPipelineSubject(),
+            new LogNotificationSource(),
+            new PushLogObserver(),
+            new PipelineMediator());
     }
 
     private static LogRecord CreateRecord()
